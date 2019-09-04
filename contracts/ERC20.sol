@@ -30,9 +30,9 @@ import "./SMT.sol";
  */
 contract ERC20 is IERC20 {
     using SafeMath for uint256;
-    using SMT for SMT.Data;
 
-    SMT.Data public balances;
+    bytes32 public root;
+    bytes32[161] private defaultHashes;
     mapping (address => mapping (address => uint256)) private _allowances;
 
     uint256 private _totalSupply;
@@ -44,12 +44,11 @@ contract ERC20 is IERC20 {
     constructor(uint256 _initialSupply) public {
         // defaultHash[0] is being set to keccak256(uint256(0));
         //balances instead of mapping (address => uint256) _balances;
-        balances.DEPTH = 160;
-        balances.defaultHashes[0] = 0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563;
-        for (uint8 i = 1; i <= balances.DEPTH; i ++) {
-            balances.defaultHashes[i] = keccak256(abi.encodePacked(balances.defaultHashes[i-1], balances.defaultHashes[i-1]));
+        defaultHashes[0] = 0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563;
+        for (uint8 i = 1; i <= 160; i ++) {
+            defaultHashes[i] = keccak256(abi.encodePacked(defaultHashes[i-1], defaultHashes[i-1]));
         }
-        balances.root = balances.defaultHashes[balances.DEPTH];
+        root = defaultHashes[160];
 
         _mint_initial(msg.sender, _initialSupply);
 
@@ -68,9 +67,9 @@ contract ERC20 is IERC20 {
     function balanceOf(address account, uint256 balance, bytes memory proof) public view returns (bool) {
       require(balance != 18569430475105882587588266137607568536673111973893317399460219858819262702947, "SMT: The balance value you entered equals 0, use 0 instead.");
         if (balance != 0) {
-          return balances.read(uint160(account), bytes32(balance), proof);
+          return SMT.read(root, defaultHashes, uint160(account), bytes32(balance), proof);
         } else {
-          return balances.read(uint160(account), balances.defaultHashes[0], proof);
+          return SMT.read(root, defaultHashes, uint160(account), defaultHashes[0], proof);
         }
     }
 
@@ -187,11 +186,11 @@ contract ERC20 is IERC20 {
         require(c != 18569430475105882587588266137607568536673111973893317399460219858819262702947 && d != 18569430475105882587588266137607568536673111973893317399460219858819262702947, "SMT: Please minimum change the amount."); //SMT restriction, because the zero leaf is defaultHashes[0]
 
         if (recipient_balance != 0) {
-          balances.write(uint160(sender), bytes32(sender_balance), sender_proof, bytes32(sender_balance - amount));
-          balances.write(uint160(recipient), bytes32(recipient_balance), recipient_proof, bytes32(recipient_balance + amount));
+          root = SMT.write(root, defaultHashes, uint160(sender), bytes32(sender_balance), sender_proof, bytes32(sender_balance - amount));
+          root = SMT.write(root, defaultHashes, uint160(recipient), bytes32(recipient_balance), recipient_proof, bytes32(recipient_balance + amount));
         } else {
-          balances.write(uint160(sender), bytes32(sender_balance), sender_proof, bytes32(sender_balance - amount));
-          balances.write(uint160(recipient), balances.defaultHashes[0], recipient_proof, bytes32(recipient_balance + amount));
+          root = SMT.write(root, defaultHashes, uint160(sender), bytes32(sender_balance), sender_proof, bytes32(sender_balance - amount));
+          root = SMT.write(root, defaultHashes, uint160(recipient), defaultHashes[0], recipient_proof, bytes32(recipient_balance + amount));
         }
         emit Write(sender, bytes32(sender_balance - amount));
         emit Write(recipient, bytes32(recipient_balance + amount));
@@ -218,7 +217,7 @@ contract ERC20 is IERC20 {
         _totalSupply = _totalSupply.add(amount);
         //add requires about overflow
 
-        balances.write(uint160(account), balances.defaultHashes[0], zeroProof, bytes32(amount));
+        root = SMT.write(root, defaultHashes, uint160(account), defaultHashes[0], zeroProof, bytes32(amount));
         emit Write(account, bytes32(amount));
 
         emit Transfer(address(0), account, amount);
@@ -231,9 +230,9 @@ contract ERC20 is IERC20 {
         _totalSupply = _totalSupply.add(amount);
 
         if (account_balance != 0) {
-          balances.write(uint160(account), bytes32(account_balance), account_proof, bytes32(account_balance + amount));
+          root = SMT.write(root, defaultHashes, uint160(account), bytes32(account_balance), account_proof, bytes32(account_balance + amount));
         } else {
-          balances.write(uint160(account), balances.defaultHashes[0], account_proof, bytes32(account_balance + amount));
+          root = SMT.write(root, defaultHashes, uint160(account), defaultHashes[0], account_proof, bytes32(account_balance + amount));
         }
 
         emit Write(account, bytes32(account_balance + amount));
@@ -259,7 +258,7 @@ contract ERC20 is IERC20 {
 
         //add requires about overflow
 
-        balances.write(uint160(account), bytes32(account_balance), account_proof, bytes32(account_balance - value));
+        root = SMT.write(root, defaultHashes, uint160(account), bytes32(account_balance), account_proof, bytes32(account_balance - value));
         emit Write(account, bytes32(account_balance - value));
         _totalSupply = _totalSupply.sub(value);
         emit Transfer(account, address(0), value);
