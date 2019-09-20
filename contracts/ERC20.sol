@@ -255,8 +255,9 @@ contract ERC20 is IERC20 {
         require(account != address(0), "ERC20: burn from the zero address");
         require(account_balance - value != 18569430475105882587588266137607568536673111973893317399460219858819262702947 && value != 0, "Minimum change the value to burn");
         require(account_balance != 18569430475105882587588266137607568536673111973893317399460219858819262702947 && account_balance != 0, "Account balance is 0");
+        require(value <= account_balance, "Account have not enough funds to burn");
 
-        //add requires about overflow
+
 
         root = SMT.write(root, defaultHashes, uint160(account), bytes32(account_balance), account_proof, bytes32(account_balance - value));
         emit Write(account, bytes32(account_balance - value));
