@@ -20,8 +20,8 @@ exports.handler = async (event) => {
 - Environment variables. Set up three variables. Key = contract_address Value = checksumaddress of the contract you deployed. Key = provider Value = your Infura provider url. Key = region Value = your aws region.
 - Basic setting. Choose memory - 256MB.
 - Add trigger. API Gateway. API - Create a new API. Security - Open. Click Add.
-- Click Save. You are here 'Lambda/Functions/YourFunctionName', go back to 'Lambda' choose Layers, click create layer, enter name 'big_integer', upload big_integer.zip, choose Runtime - Node.js 10.x, click create. Create three layers in this way.
-- Go back to your function click Layers, Add layer, Select from list of runtime compatible layers, choose name, version, add. Add three layers in this way.
+- Click Save. You are here 'Lambda/Functions/YourFunctionName', go back to 'Lambda' choose Layers, click create layer, enter name 'big_integer', upload big_integer.zip, choose Runtime - Node.js 10.x, click create. Create four layers in this way.
+- Go back to your function click Layers, Add layer, Select from list of runtime compatible layers, choose name, version, add. Add four layers in this way.
 
 ## DynamoDB
 
