@@ -1,4 +1,4 @@
-# How to set up lambda functions manually via [AWS Management Console](console.aws.amazon.com)?
+# How to set up lambda functions manually via [AWS Management Console](https://console.aws.amazon.com)?
 
 ## AWS Lambda
 
