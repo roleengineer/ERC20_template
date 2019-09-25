@@ -58,6 +58,14 @@ contract("ERC20", (accounts) => {
       assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
     }
 
+    //Send transaction (transfer more than address have) - transfers ownership of 100000 tokens from first account to second account
+    try {
+      let tx = await erc20.transfer(10000, tree.createMerkleProof(accounts[0]), accounts[1], 0, tree_transitional.createMerkleProof(accounts[1]), 100000, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+      assert.equal(e.reason, 'ERC20: transfer amount exceeds balance', "incorrect reason of the revert");
+    }
+
     //Send transaction - transfers ownership of 1000 tokens from first account to second account
     let tx = await erc20.transfer(10000, tree.createMerkleProof(accounts[0]), accounts[1], 0, tree_transitional.createMerkleProof(accounts[1]), 1000, { from: accounts[0]});
     //Check the logs
@@ -83,134 +91,6 @@ contract("ERC20", (accounts) => {
 
   });
 
-  it("should approve tokens for delegated transfer", async () => {
-    const erc20 = await ERC20.deployed();
-
-    //Correct call
-    let res = await erc20.approve.call(accounts[2], 500, { from: accounts[1] });
-    assert.equal(res, true, "Must return true");
-
-    //negative call
-    try {
-      res = await erc20.approve.call(accounts[2], 1001, { from: accounts[1]});
-    } catch (e) {
-      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
-    }
-
-    //Send transaction - approves third account to spend 500 tokens that belongs second account
-    let tx = await erc20.approve(accounts[2], 500, { from: accounts[1]});
-    //Check the logs
-    assert.equal(tx.logs.length, 1, 'trigger one event');
-    assert.equal(tx.logs[0].event, 'Approval', 'should be the "Approval" event');
-    assert.equal(tx.logs[0].args.owner, accounts[1], 'logs the account the tokens are authorized by');
-    assert.equal(tx.logs[0].args.spender, accounts[2], 'logs the account the tokens are authorized to');
-    assert.equal(tx.logs[0].args.value.toNumber(), 500, 'logs the transfer amount');
-    //Check the allowance
-    let rsp = await erc20.allowance(accounts[1], accounts[2]);
-    assert.equal(rsp, 500, "Allowance is incorrect");
-    //another parameters
-    rsp = await erc20.allowance(accounts[0], accounts[1]);
-    assert.equal(rsp, 0, "Allowance is incorrect");
-
-    //Send another transaction
-    await erc20.approve(accounts[5], 10, {from: accounts[0]});
-    //check the allowance
-    rsp = await erc20.allowance(accounts[0], accounts[5]);
-    assert.equal(rsp, 10, "Allowance is incorrect");
-
-    //Increase allowance correct call
-    res = await erc20.increaseAllowance.call(accounts[5], 40, { from: accounts[0] });
-    assert.equal(res, true, "Must return true");
-
-    //negative call
-    try {
-      res = await erc20.increaseAllowance.call(accounts[5], 9100, { from: accounts[0]});
-    } catch (e) {
-      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
-    }
-
-    //Decrease allowance correct call
-    res = await erc20.decreaseAllowance.call(accounts[5], 5, { from: accounts[0] });
-    assert.equal(res, true, "Must return true");
-
-    //negative call
-    try {
-      res = await erc20.decreaseAllowance.call(accounts[5], 20, { from: accounts[0]});
-    } catch (e) {
-      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
-    }
-
-    //Send transaction - increases amount of tokens (belongs to first account) that sixth account can spend
-    tx = await erc20.increaseAllowance(accounts[5], 40, { from: accounts[0]});
-    //Check the logs
-    assert.equal(tx.logs.length, 1, 'trigger one event');
-    assert.equal(tx.logs[0].event, 'Approval', 'should be the "Approval" event');
-    assert.equal(tx.logs[0].args.owner, accounts[0], 'logs the account the tokens are authorized by');
-    assert.equal(tx.logs[0].args.spender, accounts[5], 'logs the account the tokens are authorized to');
-    assert.equal(tx.logs[0].args.value.toNumber(), 50, 'logs the transfer amount');
-
-    //Send transaction - decreases amount of tokens (belongs to first account) that sixth account can spend
-    tx = await erc20.decreaseAllowance(accounts[5], 25, { from: accounts[0]});
-    //Check the logs
-    assert.equal(tx.logs.length, 1, 'trigger one event');
-    assert.equal(tx.logs[0].event, 'Approval', 'should be the "Approval" event');
-    assert.equal(tx.logs[0].args.owner, accounts[0], 'logs the account the tokens are authorized by');
-    assert.equal(tx.logs[0].args.spender, accounts[5], 'logs the account the tokens are authorized to');
-    assert.equal(tx.logs[0].args.value.toNumber(), 25, 'logs the transfer amount');
-
-    //Check the allowance
-    rsp = await erc20.allowance(accounts[0], accounts[5]);
-    assert.equal(rsp, 25, "Allowance is incorrect");
-  });
-
-  it("handles delegated transfer", async () => {
-    const erc20 = await ERC20.deployed();
-    //acc2 sends to acc3 from acc1
-    leaves[accounts[1]] = tokens750;
-    let tree_transitional = new SmtLib(160, leaves);
-    // Correct call
-    let res = await erc20.transferFrom.call(accounts[1], 1000, tree.createMerkleProof(accounts[1]), accounts[3], 0, tree_transitional.createMerkleProof(accounts[3]), 250, { from: accounts[2]});
-    assert.equal(res, true, "Must return true");
-
-    //negative call - try transferring something larger than the approved amount
-    try {
-      res = await erc20.transferFrom.call(accounts[1], 1000, tree.createMerkleProof(accounts[1]), accounts[3], 0, tree_transitional.createMerkleProof(accounts[3]), 501, { from: accounts[2]});
-    } catch (e) {
-      assert(e.message.indexOf("revert") >= 0, "cannot transfer value larger than allowance");
-    }
-
-    //Send transaction - third account sends the tx that changing the ownership of 250 tokens from second account to fourth account
-    let tx = await erc20.transferFrom(accounts[1], 1000, tree.createMerkleProof(accounts[1]), accounts[3], 0, tree_transitional.createMerkleProof(accounts[3]), 250, { from: accounts[2]});
-    //Check logs
-    assert.equal(tx.logs.length, 4, 'trigger four event');
-    assert.equal(tx.logs[0].event, 'Approval', 'should be the "Approval" event');
-    assert.equal(tx.logs[0].args.owner, accounts[1], 'logs the account the tokens are authorized by');
-    assert.equal(tx.logs[0].args.spender, accounts[2], 'logs the account the tokens are authorized to');
-    assert.equal(tx.logs[0].args.value.toNumber(), 250, 'logs the transfer amount');
-    assert.equal(tx.logs[1].event, 'Write', 'should be the "Write" event');
-    assert.equal(tx.logs[1].args._address, accounts[1], 'logs the senders key, path in sparse merkle tree');
-    assert.equal(tx.logs[1].args._value, tokens750, 'logs the senders value, leaf in sparse merkle tree');
-    assert.equal(tx.logs[2].event, 'Write', 'should be the "Write" event');
-    assert.equal(tx.logs[2].args._address, accounts[3], 'logs the recipients key, path in sparse merkle tree');
-    assert.equal(tx.logs[2].args._value, tokens250, 'logs the recipients value, leaf in sparse merkle tree');
-    assert.equal(tx.logs[3].event, 'Transfer', 'should be the "Transfer" event');
-    assert.equal(tx.logs[3].args.from, accounts[1], 'logs the account the tokens are transfered from');
-    assert.equal(tx.logs[3].args.to, accounts[3], 'logs the account the tokens are transfered to');
-    assert.equal(tx.logs[3].args.value.toNumber(), 250, 'logs the transfer amount');
-
-    leaves[accounts[3]] = tokens250;
-    tree = new SmtLib(160, leaves);
-
-    //check the allowance
-    let rsp = await erc20.allowance(accounts[1], accounts[2]);
-    assert.equal(rsp, 250, "Allowance is incorrect");
-
-    //Check the balances
-    rsp = await erc20.balanceOf(accounts[1], 750, tree.createMerkleProof(accounts[1]));
-    assert.equal(rsp, true, "Must return true");
-    rsp = await erc20.balanceOf(accounts[3], 250, tree.createMerkleProof(accounts[3]));
-    assert.equal(rsp, true, "Must return true");
-  });
 
   it("should send tokens correctly when sender and recipient is the same address", async () => {
     const erc20 = await ERC20.deployed();
@@ -268,4 +148,104 @@ contract("ERC20", (accounts) => {
     rsp = await erc20.balanceOf(accounts[0], 9000, tree.createMerkleProof(accounts[0]));
     assert(rsp, "Senders or/and recipients balance shouldn't change");
   });
+
+  it("should handle transfer with incorrect proof", async () => {
+    const erc20 = await ERC20.deployed();
+
+    //During the transaction we do two writes to smt, so after first write (changing sender balance) the tree state is modified and proofs for other keys as well, so for the second write (changing recipient value) we need recipient proof in that interim tree state - after first write and before second.
+    //changing the tree state to the interim state between two writes, simulating tx
+    leaves[accounts[0]] = tokens8k;
+    let tree_transitional = new SmtLib(160, leaves);
+    let recipient_proof = tree_transitional.createMerkleProof(accounts[1]); //this is a correct recipients proof
+    //changing recipients value to get incorrect senders proof
+    leaves[accounts[1]] = tokens8k;
+    let tree_incorrect = new SmtLib(160, leaves);
+    let incorrect_senders_proof = tree_incorrect.createMerkleProof(accounts[0]); //this is incorrect senders proof
+    //changing the tree state back to initial state before tx and manipulation
+    leaves[accounts[1]] = tokens1k;
+    leaves[accounts[0]] = tokens9k;
+
+    //Correct call
+    let res = await erc20.transfer.call(9000, tree.createMerkleProof(accounts[0]), accounts[1], 1000, recipient_proof, 1000, { from: accounts[0]});
+    assert.equal(res, true, "Must return true");
+
+    //negative call - using incorrect senders_proof
+    try {
+      res = await erc20.transfer.call(9000, incorrect_senders_proof, accounts[1], 1000, recipient_proof, 1000, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+    }
+
+    //Send transaction (using incorrect senders proof)- transfers ownership of 1000 tokens from first account to second account
+    try {
+      let tx = await erc20.transfer(9000, incorrect_senders_proof, accounts[1], 1000, recipient_proof, 1000, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+      assert.equal(e.reason, 'SMT: Sender balance or proof is incorrect', "incorrect reason of the revert");
+    }
+
+    //negative call - using incorrect recipient_proof
+    try {
+      res = await erc20.transfer.call(9000, tree.createMerkleProof(accounts[0]), accounts[1], 1000, tree.createMerkleProof(accounts[1]), 1000, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+    }
+
+    //Send transaction (using incorrect recipients proof)- transfers ownership of 1000 tokens from first account to second account
+    try {
+      let tx = await erc20.transfer(9000, tree.createMerkleProof(accounts[0]), accounts[1], 1000, tree.createMerkleProof(accounts[1]), 1000, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+      assert.equal(e.reason, 'update proof not valid', "incorrect reason of the revert");
+    }
+
+    //Check the balances
+    let rsp = await erc20.balanceOf(accounts[0], 9000, tree.createMerkleProof(accounts[0]));
+    assert(rsp, "Sender balance didn't change");
+
+    rsp = await erc20.balanceOf(accounts[1], 1000, tree.createMerkleProof(accounts[1]));
+    assert(rsp, "Recipient balance didn't change");
+  });
+
+  it("should handle when proof and balance belongs to another address than msg.sender", async () => {
+    const erc20 = await ERC20.deployed();
+
+    //During the transaction we do two writes to smt, so after first write (changing sender balance) the tree state is modified and proofs for other keys as well, so for the second write (changing recipient value) we need recipient proof in that interim tree state - after first write and before second.
+    //changing the tree state to the interim state between two writes, simulating tx
+    leaves[accounts[1]] = tokens250;
+    let tree_transitional = new SmtLib(160, leaves);
+    let recipient_proof = tree_transitional.createMerkleProof(accounts[2]); //this is a correct recipients proof
+    //changing the tree state back to initial state before tx
+    leaves[accounts[1]] = tokens1k;
+
+    //Correct call
+    let res = await erc20.transfer.call(1000, tree.createMerkleProof(accounts[1]), accounts[2], 0, recipient_proof, 750, { from: accounts[1]});
+    assert.equal(res, true, "Must return true");
+
+    //negative call - using incorrect senders_proof
+    try {
+      res = await erc20.transfer.call(1000, tree.createMerkleProof(accounts[1]), accounts[2], 0, recipient_proof, 750, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+    }
+
+    //Send transaction (with correct data but incorrect msg.sender)- transfers ownership of 750 tokens from second account to third account and making tx through first account
+    try {
+      let tx = await erc20.transfer(1000, tree.createMerkleProof(accounts[1]), accounts[2], 0, recipient_proof, 750, { from: accounts[0]});
+    } catch (e) {
+      assert(e.message.indexOf("revert") >= 0, "error message must contain revert");
+      assert.equal(e.reason, 'SMT: Sender balance or proof is incorrect', "incorrect reason of the revert");
+    }
+
+    //Check the balances
+    let rsp = await erc20.balanceOf(accounts[1], 1000, tree.createMerkleProof(accounts[1]));
+    assert(rsp, "Sender balance didn't change");
+
+    rsp = await erc20.balanceOf(accounts[2], 0, tree.createMerkleProof(accounts[2]));
+    assert(rsp, "Recipient balance didn't change");
+
+  });
+
+
+
 });
